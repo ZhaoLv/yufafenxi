@@ -1,0 +1,838 @@
+void scanner()
+{
+    char filename[30];
+    char ch;
+    char array[30];//单词长度上限是30
+    char * word;
+    int i;
+    int line = 1;//行数
+
+
+    FILE * infile;
+    printf("请输入要进行语法分析的功能模型程序：\n");
+    scanf("%s",filename);
+    infile = fopen(filename,"r");
+    while(!infile)
+    {
+        printf("打开文件失败！\n");
+        return;
+    }
+    ch = fgetc(infile);
+    while(ch!=EOF)
+    {
+
+        i = 0;
+        //以字母或者下划线开头,处理关键字或者标识符
+        if((ch>='A' && ch<='Z') || (ch>='a' && ch<='z') || ch == '_')
+        {
+            while((ch>='A' && ch<='Z')||(ch>='a' && ch<='z')||(ch>='0' && ch<='9') || ch == '_')
+            {
+                array[i++] = ch;
+                ch = fgetc(infile);
+            }
+            word = new char[i+1];
+            memcpy(word,array,i);
+            word[i] = '\0';
+            int seekTemp = seekKey(word);
+            if(seekTemp!=IDENTIFER)
+            {
+                createNewNode(word,KEY_DESC,seekTemp,-1,line);
+            }
+            else
+            {
+                int addr_tmp = createNewIden(word,IDENTIFER_DESC,seekTemp,-1,line);
+                createNewNode(word,IDENTIFER_DESC,seekTemp,addr_tmp,line);
+            }
+            fseek(infile,-1L,SEEK_CUR);//向后回退一位
+        }
+        //以数字开头，处理数字
+        else if(ch >='0' && ch<='9')
+        {
+            int flag = 0;
+            int flag2 = 0;
+            //处理整数
+            while(ch >='0' && ch<='9')
+            {
+                array[i++] = ch;
+                ch = fgetc(infile);
+            }
+            //处理float
+            if(ch == '.')
+            {
+                flag2 = 1;
+                array[i++] = ch;
+                ch = fgetc(infile);
+                if(ch>='0' && ch<='9')
+                {
+                    while(ch>='0' && ch<='9')
+                    {
+                        array[i++] = ch;
+                        ch = fgetc(infile);
+                    }
+                }
+                else
+                {
+                    flag = 1;
+                }
+
+                //处理Double
+                if(ch == 'E' || ch == 'e')
+                {
+                    array[i++] = ch;
+                    ch = fgetc(infile);
+                    if(ch == '+' || ch == '-')
+                    {
+                        array[i++] = ch;
+                        ch = fgetc(infile);
+                    }
+                    if(ch >='0' && ch<='9')
+                    {
+                        array[i++] = ch;
+                        ch = fgetc(infile);
+                    }
+                    else
+                    {
+                        flag = 2;
+                    }
+                }
+
+            }
+            word = new char[i+1];
+            memcpy(word,array,i);
+            word[i] = '\0';
+            if(flag == 1)
+            {
+                createNewError(word,FLOAT_ERROR,FLOAT_ERROR_NUM,line);
+            }
+            else if(flag == 2)
+            {
+                createNewError(word,DOUBLE_ERROR,DOUBLE_ERROR_NUM,line);
+            }
+            else
+            {
+                if(flag2 == 0)
+                {
+                    createNewNode(word,CONSTANT_DESC,INT_VAL,-1,line);
+                }
+                else
+                {
+                    createNewNode(word,CONSTANT_DESC,FLOAT_VAL,-1,line);
+                }
+            }
+            fseek(infile,-1L,SEEK_CUR);//向后回退一位
+        }
+        //以"/"开头
+        else if(ch == '/')
+        {
+            ch = fgetc(infile);
+            //处理运算符"/="
+            if(ch == '=')
+            {
+                createNewNode("/=",OPE_DESC,COMPLETE_DIV,-1,line);
+            }
+            //处理"/**/"型注释
+            else if(ch == '*')
+            {
+                ch =  fgetc(infile);
+                while(1)
+                {
+                    while(ch != '*')
+                    {
+                        if(ch == '\n')
+                        {
+                            line++;
+                        }
+                        ch = fgetc(infile);
+                        if(ch == EOF)
+                        {
+                            createNewError(_NULL,NOTE_ERROR,NOTE_ERROR_NUM,line);
+                            return;
+                        }
+                    }
+                    ch = fgetc(infile);
+                    if(ch == '/')
+                    {
+                        break;
+                    }
+                    if(ch == EOF)
+                    {
+                        createNewError(_NULL,NOTE_ERROR,NOTE_ERROR_NUM,line);
+                        return;
+                    }
+                }
+                createNewNode(_NULL,NOTE_DESC,NOTE1,-1,line);
+            }
+            //处理"//"型注释
+            else if(ch == '/')
+            {
+                while(ch!='\n')
+                {
+                    ch = fgetc(infile);
+                    if(ch == EOF)
+                    {
+                        createNewNode(_NULL,NOTE_DESC,NOTE2,-1,line);
+                        return;
+                    }
+                }
+                line++;
+                createNewNode(_NULL,NOTE_DESC,NOTE2,-1,line);
+                if(ch == EOF)
+                {
+                    return;
+                }
+            }
+            //处理除号
+            else
+            {
+                createNewNode("/",OPE_DESC,DIV,-1,line);
+            }
+        }
+        //处理常量字符串
+        else if(ch == '"')
+        {
+            createNewNode("\"",CLE_OPE_DESC,DOU_QUE,-1,line);
+            ch = fgetc(infile);
+            i = 0;
+            while(ch!='"')
+            {
+                array[i++] = ch;
+                if(ch == '\n')
+                {
+                    line++;
+                }
+                ch = fgetc(infile);
+                if(ch == EOF)
+                {
+                    createNewError(_NULL,STRING_ERROR,STRING_ERROR_NUM,line);
+                    return;
+                }
+            }
+            word = new char[i+1];
+            memcpy(word,array,i);
+            word[i] = '\0';
+            createNewNode(word,CONSTANT_DESC,STRING_VAL,-1,line);
+            createNewNode("\"",CLE_OPE_DESC,DOU_QUE,-1,line);
+        }
+        //处理常量字符
+        else if(ch == '\'')
+        {
+            createNewNode("\'",CLE_OPE_DESC,SIN_QUE,-1,line);
+            ch = fgetc(infile);
+            i = 0;
+            while(ch!='\'')
+            {
+                array[i++] = ch;
+                if(ch == '\n')
+                {
+                    line++;
+                }
+                ch = fgetc(infile);
+                if(ch == EOF)
+                {
+                    createNewError(_NULL,CHARCONST_ERROR,CHARCONST_ERROR_NUM,line);
+                    return;
+                }
+            }
+            word = new char[i+1];
+            memcpy(word,array,i);
+            word[i] = '\0';
+            createNewNode(word,CONSTANT_DESC,CHAR_VAL,-1,line);
+            createNewNode("\'",CLE_OPE_DESC,SIN_QUE,-1,line);
+        }
+        else if(ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n')
+        {
+            if(ch == '\n')
+            {
+                line++;
+            }
+        }
+        else
+        {
+            if(ch == EOF)
+            {
+                return;
+            }
+            //处理头文件和宏常量（预处理）
+            else if(ch == '#')
+            {
+                while(ch!='\n' && ch!=EOF)
+                {
+                    array[i++] = ch;
+                    ch = fgetc(infile);
+                }
+                word = new char[i+1];
+                memcpy(word,array,i);
+                word[i] = '\0';
+                preProcess(word,line);
+
+                fseek(infile,-1L,SEEK_CUR);//向后回退一位
+            }
+            //处理-开头的运算符
+            else if(ch == '-')
+            {
+                array[i++] = ch;
+                ch = fgetc(infile);
+                if(ch >='0' && ch<='9')
+                {
+                    int flag = 0;
+                    int flag2 = 0;
+                    //处理整数
+                    while(ch>='0' && ch<='9')
+                    {
+                        array[i++] = ch;
+                        ch = fgetc(infile);
+                    }
+                    //处理float
+                    if(ch == '.')
+                    {
+                        flag2 = 1;
+                        array[i++] = ch;
+                        ch = fgetc(infile);
+                        if(ch>='0' && ch<='9')
+                        {
+                            while(ch>='0' && ch<='9')
+                            {
+                                array[i++] = ch;
+                                ch = fgetc(infile);
+                            }
+                        }
+                        else
+                        {
+                            flag = 1;
+                        }
+                        //处理Double
+                        if(ch == 'E' || ch == 'e')
+                        {
+                            array[i++] = ch;
+                            ch = fgetc(infile);
+                            if(ch == '+' || ch == '-')
+                            {
+                                array[i++] = ch;
+                                ch = fgetc(infile);
+                            }
+                            if(ch >='0' && ch<='9')
+                            {
+                                array[i++] = ch;
+                                ch = fgetc(infile);
+                            }
+                            else
+                            {
+                                flag = 2;
+                            }
+                        }
+                    }
+                    word = new char[i+1];
+                    memcpy(word,array,i);
+                    word[i] = '\0';
+                    if(flag == 1)
+                    {
+                        createNewError(word,FLOAT_ERROR,FLOAT_ERROR_NUM,line);
+                    }
+                    else if(flag == 2)
+                    {
+                        createNewError(word,DOUBLE_ERROR,DOUBLE_ERROR_NUM,line);
+                    }
+                    else
+                    {
+                        if(flag2 == 0)
+                        {
+                            createNewNode(word,CONSTANT_DESC,INT_VAL,-1,line);
+                        }
+                        else
+                        {
+                            createNewNode(word,CONSTANT_DESC,FLOAT_VAL,-1,line);
+                        }
+                    }
+                    fseek(infile,-1L,SEEK_CUR);//向后回退一位
+                }
+                else if(ch == '>')
+                {
+                    createNewNode("->",OPE_DESC,ARROW,-1,line);
+                }
+                else if(ch == '-')
+                {
+                    createNewNode("--",OPE_DESC,SELF_SUB,-1,line);
+                }
+                else if(ch == '=')
+                {
+                    createNewNode("--",OPE_DESC,SELF_SUB,-1,line);
+                }
+                else
+                {
+                    createNewNode("-",OPE_DESC,SUB,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理+开头的运算符
+            else if(ch == '+')
+            {
+                ch = fgetc(infile);
+                if(ch == '+')
+                {
+                    createNewNode("++",OPE_DESC,SELF_ADD,-1,line);
+                }
+                else if(ch == '=')
+                {
+                    createNewNode("+=",OPE_DESC,COMPLETE_ADD,-1,line);
+                }
+                else
+                {
+                    createNewNode("+",OPE_DESC,ADD,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理*开头的运算符
+            else if(ch == '*')
+            {
+                ch = fgetc(infile);
+                if(ch == '=')
+                {
+                    createNewNode("*=",OPE_DESC,COMPLETE_MUL,-1,line);
+                }
+                else
+                {
+                    createNewNode("*",OPE_DESC,MUL,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理按^开头的运算符
+            else if(ch == '^')
+            {
+                ch = fgetc(infile);
+                if(ch == '=')
+                {
+                    createNewNode("^=",OPE_DESC,COMPLETE_BYTE_XOR,-1,line);
+                }
+                else
+                {
+                    createNewNode("^",OPE_DESC,BYTE_XOR,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理%开头的运算符
+            else if(ch == '%')
+            {
+                ch = fgetc(infile);
+                if(ch == '=')
+                {
+                    createNewNode("%=",OPE_DESC,COMPLETE_MOD,-1,line);
+                }
+                else
+                {
+                    createNewNode("%",OPE_DESC,MOD,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理&开头的运算符
+            else if(ch == '&')
+            {
+                ch = fgetc(infile);
+                if(ch == '=')
+                {
+                    createNewNode("&=",OPE_DESC,COMPLETE_BYTE_AND,-1,line);
+                }
+                else if(ch == '&')
+                {
+                    createNewNode("&&",OPE_DESC,AND,-1,line);
+                }
+                else
+                {
+                    createNewNode("&",OPE_DESC,BYTE_AND,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理~开头的运算符
+            else if(ch == '~')
+            {
+                ch = fgetc(infile);
+                if(ch == '=')
+                {
+                    createNewNode("~=",OPE_DESC,COMPLETE_COMPLEMENT,-1,line);
+                }
+                else
+                {
+                    createNewNode("~",OPE_DESC,COMPLEMENT,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理!开头的运算符
+            else if(ch == '!')
+            {
+                ch = fgetc(infile);
+                if(ch == '=')
+                {
+                    createNewNode("!=",OPE_DESC,NOT_EQUAL,-1,line);
+                }
+                else
+                {
+                    createNewNode("!",OPE_DESC,NOT,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理<开头的运算符
+            else if(ch == '<')
+            {
+                ch = fgetc(infile);
+                if(ch == '<')
+                {
+                    createNewNode("<<",OPE_DESC,LEFT_MOVE,-1,line);
+                }
+                else if(ch == '=')
+                {
+                    createNewNode("<=",OPE_DESC,LES_EQUAL,-1,line);
+                }
+                else
+                {
+                    createNewNode("<",OPE_DESC,LES_THAN,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理>开头的运算符
+            else if(ch == '>')
+            {
+                ch = fgetc(infile);
+                if(ch == '>')
+                {
+                    createNewNode(">>",OPE_DESC,RIGHT_MOVE,-1,line);
+                }
+                else if(ch == '=')
+                {
+                    createNewNode(">=",OPE_DESC,GRT_EQUAL,-1,line);
+                }
+                else
+                {
+                    createNewNode(">",OPE_DESC,GRT_THAN,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            //处理|开头的运算符
+            else if(ch == '|')
+            {
+                ch = fgetc(infile);
+                if(ch == '|')
+                {
+                    createNewNode("||",OPE_DESC,OR,-1,line);
+                }
+                else
+                {
+                    createNewNode("|",OPE_DESC,BYTE_OR,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            else if(ch == '=')
+            {
+                ch = fgetc(infile);
+                if(ch == '=')
+                {
+                    createNewNode("==",OPE_DESC,EQUAL,-1,line);
+                }
+                else
+                {
+                    createNewNode("=",OPE_DESC,ASG,-1,line);
+                    fseek(infile,-1L,SEEK_CUR);
+                }
+            }
+            else if(ch == '(')
+            {
+                leftSmall++;
+                lineBra[0][leftSmall] = line;
+                createNewNode("(",CLE_OPE_DESC,LEFT_BRA,-1,line);
+            }
+            else if(ch == ')')
+            {
+                rightSmall++;
+                lineBra[1][rightSmall] = line;
+                createNewNode(")",CLE_OPE_DESC,RIGHT_BRA,-1,line);
+            }
+            else if(ch == '[')
+            {
+                leftMiddle++;
+                lineBra[2][leftMiddle] = line;
+                createNewNode("[",CLE_OPE_DESC,LEFT_INDEX,-1,line);
+            }
+            else if(ch == ']')
+            {
+                rightMiddle++;
+                lineBra[3][rightMiddle] = line;
+                createNewNode("]",CLE_OPE_DESC,RIGHT_INDEX,-1,line);
+            }
+            else if(ch == '{')
+            {
+                leftBig++;
+                lineBra[4][leftBig] = line;
+                createNewNode("{",CLE_OPE_DESC,L_BOUNDER,-1,line);
+            }
+            else if(ch == '}')
+            {
+                rightBig++;
+                lineBra[5][rightBig] = line;
+                createNewNode("}",CLE_OPE_DESC,R_BOUNDER,-1,line);
+            }
+            else if(ch == '.')
+            {
+                createNewNode(".",CLE_OPE_DESC,POINTER,-1,line);
+            }
+            else if(ch == ',')
+            {
+                createNewNode(",",CLE_OPE_DESC,COMMA,-1,line);
+            }
+            else if(ch == ';')
+            {
+                createNewNode(";",CLE_OPE_DESC,SEMI,-1,line);
+            }
+            else
+            {
+                char temp[2];
+                temp[0] = ch;
+                temp[1] = '\0';
+                createNewError(temp,CHAR_ERROR,CHAR_ERROR_NUM,line);
+            }
+        }
+        ch = fgetc(infile);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+struct port
+{
+    int direction;//方向 1:in 2:out 3:inout
+    int width;//宽度
+    port * next;//下一个节点
+};
+
+struct Pid
+{
+	char ID[30];
+	port* p;
+	Pid* next;
+};
+
+struct transaction
+{
+	char t[300];
+	transaction* next;
+};
+
+struct Tid
+{
+	char ID[30];
+	transaction* t;
+	Tid* next;
+};
+struct function
+{
+	char condition[300];
+	char action[300];
+	char configuration[300];
+	function* next;
+};
+struct Fid
+{
+	char ID[30];
+	function* f;
+	Fid* next;
+};
+
+
+
+
+//关键字
+/*
+#define AUTO 1
+#define BREAK 2
+#define CASE 3
+#define CHAR 4
+#define CONST 5
+#define CONTINUE 6
+#define DEFAULT 7
+#define DO 8
+#define DOUBLE 9
+#define ELSE 10
+#define ENUM 11
+#define EXTERN 12
+#define FLOAT 13
+#define FOR 14
+#define GOTO 15
+#define IF 16
+#define INT 17
+#define LONG 18
+#define REGISTER 19
+#define RETURN 20
+#define SHORT 21
+#define SIGNED 22
+#define SIZEOF 23
+#define STATIC 24
+#define STRUCT 25
+#define SWITCH 26
+#define TYPEDEF 27
+#define UNION 28
+#define UNSIGNED 29
+#define VOID 30
+#define VOLATILE 31
+#define WHILE 32
+#define KEY_DESC "关键字"
+*/
+//关键字
+#define FUNCTION 1
+#define CONDITION 2
+#define CONFIGURATION 3
+#define ACTION 4
+#define CASE 5
+#define IF 6
+#define TRANSACTION 7
+#define PORT 8
+#define DIRECT 9
+#define WIDTH 10
+#define STORANGE 11
+#define TYPE 12
+#define SIZE 13
+#define PROPERTY 14
+#define ELSE 15
+#define KEY_DESC "关键字"
+
+//标志符
+#define IDENTIFER 40
+#define IDENTIFER_DESC "标志符"
+
+//常量
+/*
+#define INT_VAL 51 //整形常量
+#define CHAR_VAL 52 //字符常量
+#define FLOAT_VAL 53 //浮点数常量
+#define STRING_VAL 54 //双精度浮点数常量
+#define MACRO_VAL 55 //宏常量
+#define CONSTANT_DESC "常量"
+*/
+//常量
+#define MACRO_VAL 50 //宏常量
+#define FUNCTION_VAL 51//function 常量
+#define CONDITION_VAL 52
+#define CONFIGURATION_VAL 53
+#define ACTION_VAL 54
+#define TRANSACTION_VAL 55
+#define INTERFACE_VAL 56
+#define DIRECT_VAL 57
+#define WIDTH_VAL 58
+#define STORANGE_VAL 59
+#define TYPE_VAL 60
+#define SIZE_VAL 61
+#define PROPERTY_VAL 62
+#define CONSTANT_DESC "常量"
+
+
+
+
+
+
+
+
+//运算符
+#define NOT 63   // !
+#define BYTE_AND 64 //&
+#define COMPLEMENT 65 // ~
+#define BYTE_XOR  66 // ^
+/*
+#define MUL 65 // *
+#define DIV 66// /
+#define MOD 67 // %
+#define ADD 68 // +
+#define SUB 69 // -
+#define LES_THAN 70 // <
+#define GRT_THAN 71 // >
+*/
+#define ASG 67 // =
+#define ARROW 68 // ->
+/*
+#define SELF_ADD 69 // ++
+#define SELF_SUB 70 // --
+
+#define LEFT_MOVE 76 // <<
+#define RIGHT_MOVE 77 // >>
+#define LES_EQUAL 78 // <=
+#define GRT_EQUAL 79 // >=
+*/
+#define EQUAL 69 // ==
+#define NOT_EQUAL 70 // !=
+#define AND 71 // &&
+#define OR 72 // ||
+/*
+#define COMPLETE_ADD 84 // +=
+#define COMPLETE_SUB 85 // -=
+#define COMPLETE_MUL 86 // *=
+#define COMPLETE_DIV 87 // /=
+#define COMPLETE_BYTE_XOR 88 // ^=
+#define COMPLETE_BYTE_AND 89 // &=
+#define COMPLETE_COMPLEMENT 90 // ~=
+#define COMPLETE_MOD 91 //%=
+*/
+#define BYTE_OR 73 // |
+
+#define OPE_DESC "运算符"
+
+//限界符
+#define LEFT_BRA 100 // (
+#define RIGHT_BRA 101 // )
+#define LEFT_INDEX 102 // [
+#define RIGHT_INDEX 103 // ]
+#define L_BOUNDER 104 //  {
+#define R_BOUNDER 105 // }
+#define POINTER 106 // .
+#define JING 107 // #
+#define UNDER_LINE 108 // _
+#define COMMA 109 // ,
+#define SEMI 110 // ;
+#define SIN_QUE 111 // '
+#define DOU_QUE 112 // "
+
+#define CLE_OPE_DESC "限界符"
+
+#define NOTE1 120 // "/**/"注释
+#define NOTE2 121 // "//"注释
+#define NOTE_DESC "注释"
+
+
+#define HEADER 130 //头文件
+#define HEADER_DESC "头文件"
+
+//错误类型
+#define FLOAT_ERROR "float表示错误"
+#define FLOAT_ERROR_NUM 1
+#define DOUBLE_ERROR "double表示错误"
+#define DOUBLE_ERROR_NUM 2
+#define NOTE_ERROR "注释没有结束符"
+#define NOTE_ERROR_NUM 3
+#define STRING_ERROR "字符串常量没有结束符"
+#define STRING_ERROR_NUM 4
+#define CHARCONST_ERROR "字符常量没有结束符"
+#define CHARCONST_ERROR_NUM 5
+#define CHAR_ERROR "非法字符"
+#define CHAR_ERROR_NUM 6
+#define LEFT_BRA_ERROR "'('没有对应项"
+#define LEFT_BRA_ERROR_NUM 7
+#define RIGHT_BRA_ERROR "')'没有对应项"
+#define RIGHT_BRA_ERROR_NUM 8
+#define LEFT_INDEX_ERROR "'['没有对应项"
+#define LEFT_INDEX_ERROR_NUM 9
+#define RIGHT_INDEX_ERROR "']'没有对应项"
+#define RIGHT_INDEX_ERROR_NUM 10
+#define L_BOUNDER_ERROR "'{'没有对应项"
+#define L_BOUNDER_ERROR_NUM 11
+#define R_BOUNDER_ERROR "'}'没有对应项"
+#define R_BOUNDER_ERROR_NUM 12
+#define PRE_PROCESS_ERROR "预处理错误" //头文件或者宏定义错误
+#define PRE_PROCESS_ERROR_NUM  13
+
+#define _NULL "无"
+
+#define DESCRIBE 4000
+#define TYPE 4001
+#define STRING 4002
+#define DIGIT 4003

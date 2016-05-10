@@ -1,0 +1,11 @@
+function add{
+condition=normal_do;operation==000;
+action=out[51:0]==52'b0,
+configuration=rounding,
+}
+function add_overflow :add{
+condition=operand_a[62:52]==11'b11111111110;operand_b[62:52]==11'b11111111110;operand_a[51]&&operand_b[51]==1;operand_a[63]^operand_b[63]==0;#20000;enable=0;
+action=out[62:52]==11'b11111111111,overflow==1
+configuration=
+}
+

@@ -37,10 +37,11 @@ struct function
 	char condition[500];
 	char action[500];
 	char configuration[100];
-//	char boundry_condition[10][500];
+	char boundry_condition[20][500];
+	int i;//num of the boundry_condition
 	function* next;
 };
-
+/*
 struct boundry_condition
 {
 	function* f;
@@ -48,7 +49,7 @@ struct boundry_condition
 	int i;
 	boundry_condition * next;
 };
-
+*/
 
 void close();
 void initNode();
@@ -79,9 +80,9 @@ function * fathersearch(char * id);
 bool findconfiguration(function * f,port* p);
 char * unfoldcondition(char* condition);
 //boundry_condition
-void createboundry_condition(function * f);
-void print_boundry_condition();
-
+//void createboundry_condition(function * f);
+//void print_boundry_condition();
+//int replace_nearest(char* sSrc, char* sMatchStr, char* sReplaceStr, char* caNewString);
 //void scanner_boundry_condition(function * f);
 
 

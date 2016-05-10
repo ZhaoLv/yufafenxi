@@ -7,7 +7,7 @@ using namespace std;
 port * PortHead;//端口首结点
 transaction * TranHead;
 function* FunHead;
-boundry_condition * BounHead;
+//boundry_condition * BounHead;
 /*boundry_condition* BounHead;*/
 
 void initNode()
@@ -27,14 +27,13 @@ void initNode()
 	strcpy(FunHead->condition, "");
 	strcpy(FunHead->action, "");
 	strcpy(FunHead->configuration, "");
-	/*
 	for(int i=0;i<10;i++)
 	{
 		strcpy(FunHead->boundry_condition[i],"");
 	}
-	*/
-	
+	FunHead->i=-1;
 	FunHead->next=NULL;
+	/*
 	BounHead = new boundry_condition();
 	BounHead->f=NULL;
 	for(int i=0;i<10;i++)
@@ -43,10 +42,7 @@ void initNode()
 	}
 	BounHead->i=-1;
 	BounHead->next=NULL;
-
-
-
-
+	*/
 }
 
 void createport(char* id, int direct, int width)
@@ -304,8 +300,50 @@ void createfunction(char* id, char* condition, char* action, char* configuration
 	strcpy(temp->condition,condition);
 	strcpy(temp->action,action);
 	strcpy(temp->configuration,configuration);
-	p->next=temp;
 	
+	
+	
+	//这里加产生condition_boundry,i
+	temp->i=0;
+	int condition_length=mystrlen(condition);
+	for(int k=0;k<condition_length;k++)
+	{
+		char * condition_temp;
+		condition_temp= condition;
+		if((condition[k]=='>')||(condition[k]=='<'))
+		{
+			for(int m=k;m<mystrlen(condition_temp);m++)
+			{
+			//替换最近的一个
+				if((condition_temp[m]=='>')||(condition_temp[m]=='<'))
+				{
+					if(condition_temp[m+1]!='=')
+					{
+						memcpy(temp->boundry_condition[temp->i],condition_temp,mystrlen(condition_temp)+1);
+						temp->boundry_condition[temp->i][mystrlen(condition_temp)]='\0';
+						temp->boundry_condition[temp->i][m]='=';
+						for(int n=mystrlen(condition_temp); n>m;n--)
+						{
+							temp->boundry_condition[temp->i][n+1]=temp->boundry_condition[temp->i][n];
+						}
+						temp->boundry_condition[temp->i][m+1]='=';
+						condition_temp = temp->boundry_condition[temp->i];
+						temp->i=temp->i+1;
+					}
+					else if(condition_temp[m+1]=='=')
+					{
+						memcpy(temp->boundry_condition[temp->i],condition_temp,mystrlen(condition_temp)+1);
+						temp->boundry_condition[temp->i][mystrlen(condition_temp)]='\0';
+						temp->boundry_condition[temp->i][m]='=';
+						condition_temp = temp->boundry_condition[temp->i];
+						temp->i=temp->i+1;
+					}
+				}
+			}
+		}
+	}
+
+	p->next=temp;
 }     
             
 void  printfunction()
@@ -315,6 +353,10 @@ void  printfunction()
 	{
 		p=p->next;
 		cout<<p->id<<endl<<p->condition<<endl<<p->configuration<<endl<<p->action<<endl;
+		for(int k=0;k<p->i;k++)
+		{
+			cout<<p->boundry_condition[k]<<endl;
+		}
 
 	}
 	int i;
@@ -892,6 +934,59 @@ void printsv()//每一个功能点都输出一个.sv
 				
 		}
 		ofile<<"end"<<endl;
+		for(int k=0;k<f->i;k++)
+		{
+			ofile<<"repeat("<<COUNT<<")"<<endl;
+			ofile<<"begin"<<endl;
+			ofile<<"p.constraint_mode(0);"<<endl;
+			//char * constraint;
+			constraint = (f->boundry_condition[k]);
+			i=0;
+			m=0;
+			n=0;
+			//char constraint_class[500];
+			//char constraint_time[500];
+			while(constraint[i]!='#'&& constraint[i]!='\0')
+			{
+				constraint_class[m++]=constraint[i++];
+			}
+			constraint_class[m]='\0';
+			if(constraint[i]=='#')
+			{
+				while(constraint[i]!='\0')
+				{
+					constraint_time[n++]=constraint[i++];
+				}
+			}
+			constraint_time[n]='\0';
+			ofile<<"assert(p.randomize()with{"<<constraint_class<<"});"<<endl;
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(strcmp(p->id,"clk")==1)
+				{
+					if(p->direction==1)
+					{
+						ofile<<p->id<<"="<<"p."<<p->id<<";"<<endl;
+					}
+				}
+			}
+			ofile<<constraint_time<<endl;
+			ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
+			//display所有的信号值
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(strcmp(p->id,"clk")==1)
+				{
+					ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+				}
+				
+			}
+			ofile<<"end"<<endl;	
+		}
 		ofile<<"$finish;"<<endl;
 		ofile<<"end"<<endl;
 
@@ -907,6 +1002,31 @@ void printsv()//每一个功能点都输出一个.sv
 		ofile.close();
 	}	
 }
+/*
+int replace_nearest(char* sSrc, char* sMatchStr, char* sReplaceStr, char* caNewString)
+{
+	 int StringLen;
+    // char caNewString[500];
+     char* FindPos;
+     FindPos =(char *)strstr(sSrc, sMatchStr);
+     if( (!FindPos) || (!sMatchStr) )
+		return -1;
+	 else
+	 {
+        //memset(caNewString, 0, sizeof(caNewString));
+        StringLen = FindPos - sSrc;
+        memcpy(caNewString, sSrc, StringLen+1);
+		caNewString[StringLen] = '\0';
+        strcat(caNewString, sReplaceStr);
+        strcat(caNewString, FindPos + strlen(sMatchStr));
+        //strcpy(sSrc, caNewString);
+        //free(FindPos);
+        return 0;
+	 }
+}
+
+*/
+/*
 
 void createboundry_condition(function * f)
 {
@@ -920,6 +1040,15 @@ void createboundry_condition(function * f)
 	temp->i=0;
 	char * original=f->condition;
 	int condition_length=mystrlen(original);
+	if(replace_nearest(original, ">", "==", NULL))
+//	temp->condition[temp->i] = replace_nearest(original, ">", "==");
+
+
+
+
+
+
+
 	for (int k=0;k<condition_length;k++)
 	{
 		if(((original[k]=='>')&&(original[k+1]!='='))||((original[k]=='<')&&(original[k+1]!='=')))
@@ -944,6 +1073,7 @@ void createboundry_condition(function * f)
 	}
 	b->next=temp;
 }
+
 void print_boundry_condition()
 {
 	function * p=FunHead;
@@ -1129,8 +1259,7 @@ void print_boundrysv()
 		o=o+1;
 	}
 }
-
-	
+*/
 
 
 

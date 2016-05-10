@@ -11,6 +11,7 @@ using namespace std;
 
 int main()
 {
+	
 	initNode();
 	scanner_port();
 //	printport();
@@ -20,9 +21,9 @@ int main()
 //	printfunction();
 	printsv();
 //	print_boundry_condition();
-	print_boundrysv();
+//	print_boundrysv();
 	close();
 
 	
-	return 0;
+	
 }

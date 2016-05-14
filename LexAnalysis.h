@@ -50,12 +50,23 @@ struct boundry_condition
 	boundry_condition * next;
 };
 */
+struct constraint
+{
+	char time[15];
+	char c[500];
+	char port_name[100];
+	constraint * next;
+};
 
 void close();
 void initNode();
 void printsv();
 int mystrlen(char * word);
 void print_boundrysv();
+void printsv_with_if_class();
+//void printsv_with_if();
+void printsv_with_if_TB();
+bool mystrstr(char * str1,char * str2);
 //void scanner_boundry();
 //char* instantiate(ofstream ofile);
 //void printsv_timing();
@@ -85,6 +96,11 @@ char * unfoldcondition(char* condition);
 //int replace_nearest(char* sSrc, char* sMatchStr, char* sReplaceStr, char* caNewString);
 //void scanner_boundry_condition(function * f);
 
+
+//constraint
+void constraint_initial();
+void constraint_close();
+void create_constraint(char* condition);
 
 
 

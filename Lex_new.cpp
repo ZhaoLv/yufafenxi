@@ -7,8 +7,10 @@ using namespace std;
 port * PortHead;//端口首结点
 transaction * TranHead;
 function* FunHead;
+constraint * ConHead;
 //boundry_condition * BounHead;
 /*boundry_condition* BounHead;*/
+
 
 void initNode()
 {
@@ -64,6 +66,7 @@ void close()
     delete PortHead;
 	delete TranHead;
 	delete FunHead;
+	delete ConHead;
 }
 
 void errorport(int line)
@@ -1260,6 +1263,504 @@ void print_boundrysv()
 	}
 }
 */
+void constraint_initial()
+{
+	ConHead = new constraint();
+	strcpy(ConHead->c,"");
+	strcpy(ConHead->port_name,"");
+	strcpy(ConHead->time,"");
+	ConHead->next = NULL;
+}
+bool findport(char* word)
+{
+	port * p = PortHead;
+	while(p->next!=NULL)
+	{
+		p=p->next;
+		if(strcmp(p->id,word)==0)
+		{
+			return true;
+		}
+
+	}
+	return false;
+}
+bool mystrstr(char * str1,char * str2)
+{
+	//char str[20]="jsdlaadf",substr[10]="sdf";
+	char *p=str1,*q=str2;
+	int flag=0;
+	for(;*(p+strlen(str2)-1);p++)
+	{
+		for(q=str2;*p==*q&&*q;p++,q++);
+			if(!*q)
+			{
+				flag=1;
+				break;
+			}
+	}	
+	if(flag==1) 
+		return true;
+	else 
+		return false;
+}
+
+char * generate_portname(char* c)
+{
+	char * portname = new char[500];
+	strcpy(portname,"");
+	int i;
+	char array[500];
+	char * word;
+	int c_length = mystrlen(c);
+	for(i=0;i<c_length;i++)
+	{
+		if((c[i]>='A' && c[i]<='Z') || (c[i]>='a' && c[i]<='z') || (c[i]>='0' && c[i]<='9')||c[i] == '_')
+		{
+			int k=0;
+			while((c[i]>='A' && c[i]<='Z') || (c[i]>='a' && c[i]<='z') || (c[i]>='0' && c[i]<='9')||c[i] == '_')
+			{
+				array[k++] = c[i++];
+			}
+			word = new char[k+2];
+			memcpy(word,array,k);
+			//word[k] = ',';
+			word[k] = '\0';
+			if(findport(word)&&!mystrstr(portname,word))
+			{
+				word[k]=',';
+				word[k+1]='\0';
+				strcat(portname,word);
+			}
+			i=i-1;
+		}
+	}
+	int l = mystrlen(portname);
+	portname[l-1]='\0';
+	return portname;
+}
+/*
+char * allinput()
+{
+	port * po = PortHead;
+	char * portname_all;
+	strcpy(portname_all,"");
+	while(po->next!=NULL)
+	{
+		po=po->next;
+		if(po->direction==1)
+		{
+			strcat(portname_all,po->id);
+			strcat(portname_all,",");
+		}
+	}
+	int l = mystrlen(portname_all);
+	portname_all[l-1]="\0";
+	return portname_all;
+}
+*/
+
+	
+
+
+
+
+
+
+
+void create_constraint(char* condition)
+{
+	constraint * p=ConHead;
+	
+	while(p->next!=NULL)
+	{
+		p=p->next;
+	}
+	char * condition_temp = new char [mystrlen(condition)+1];
+	memcpy(condition_temp,condition,mystrlen(condition));
+	condition_temp[mystrlen(condition)]='\0';
+	char* token = strtok(condition_temp,"#");
+	if(token!=NULL)
+	{
+		constraint * temp = new constraint();
+		strcpy(temp->c,token);
+		strcpy(temp->time,"");
+		strcpy(temp->port_name,"");
+		p->next=temp;
+		p=p->next;
+		token = strtok(NULL,"#");
+		while(token!=NULL)
+		{
+			constraint * temp1 = new constraint();
+			char  array[300];
+			int i=0;
+			while(token[i]!=';')
+			{
+				array[i]=token[i];
+				i++;
+			}
+			array[i] = ';';
+			char * word_temp = new char[i+2];
+			memcpy(word_temp,array,i+1);
+			word_temp[i+1]='\0';
+			//temp->time = new char [i+2];
+			strcat(temp1->time,"#");
+			strcat(temp1->time,word_temp);
+			int k;
+			int i_temp=i;
+			for (k=0;k<mystrlen(token)-i_temp-1;k++)
+			{
+				array[k] = token[++i];
+			}
+			char * word = new char [k+1];
+			memcpy(word,array,k);
+			word[k] = '\0';
+			strcpy(temp1->c,word);
+			strcpy(temp1->port_name,generate_portname(word));
+			p->next=temp1;
+			p=p->next;
+			token = strtok(NULL,"#");
+		}
+	}
+	else
+	{
+		constraint * temp = new constraint();
+		strcpy(temp->c,condition);
+		strcpy(temp->time,"");
+		strcpy(temp->port_name,"");
+		p->next=temp;
+		
+	}
+}
+
+
+	
+
+void printsv_with_if_class()
+{
+	function * f = FunHead;
+	
+	while(f->next!=NULL)
+	{	
+		int count = 0;
+		f=f->next;
+		char name[30];
+		memcpy(name,f->id,mystrlen(f->id));
+		name[mystrlen(f->id)]='\0';
+		strcat(name,"_class.sv");
+		ofstream ofile;
+		ofile.open(name,ios::app);
+		ofile<<"class packet"<<count<<";"<<endl;
+		port * p;
+		p=PortHead;
+		while(p->next!=NULL)
+		{
+			p=p->next;
+			if(strcmp(p->id,"clk")==1)
+			{
+				if(p->direction==1)
+				{
+					if(findconfiguration(f,p))
+					{
+						ofile<<"randc"<<" "<<"bit"<<" ";
+					}
+					else
+					{
+						ofile<<"rand"<<" "<<"bit"<<" ";
+					}
+					if(p->width>1)
+					{
+						ofile<<"["<<(p->width-1)<<":"<<"0"<<"]";
+					}
+					ofile<<p->id<<";"<<endl;
+				}
+				else
+				{
+					ofile<<"bit"<<" ";
+					if(p->width>1)
+					{
+						ofile<<"["<<(p->width-1)<<":"<<"0"<<"]";
+					}
+					ofile<<p->id<<";"<<endl;
+				}
+			}
+		}
+		//对约束进行处理，以#进行区别
+		constraint_initial();
+		create_constraint(f->condition);
+		//constraint_close();
+		constraint * con = ConHead;
+		int con_count=0;
+		while(con->next!=NULL)
+		{
+			con=con->next;
+			ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+			con_count++;
+		}
+		ofile<<"endclass"<<endl;
+		count++;
+		//下面是function的边界：
+
+		for(int a=0; a<f->i;a++)
+		{
+			ofile<<"class packet"<<count<<";"<<endl;
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(strcmp(p->id,"clk")==1)
+				{
+					if(p->direction==1)
+					{
+						if(findconfiguration(f,p))
+						{
+							ofile<<"randc"<<" "<<"bit"<<" ";
+						}
+						else
+						{
+							ofile<<"rand"<<" "<<"bit"<<" ";
+						}
+						if(p->width>1)
+						{
+							ofile<<"["<<(p->width-1)<<":"<<"0"<<"]";
+						}
+						ofile<<p->id<<";"<<endl;
+					}
+					else
+					{
+						ofile<<"bit"<<" ";
+						if(p->width>1)
+						{
+							ofile<<"["<<(p->width-1)<<":"<<"0"<<"]";
+						}
+						ofile<<p->id<<";"<<endl;
+					}
+				}
+			}
+			constraint_initial();
+			create_constraint(f->boundry_condition[a]);
+			constraint * con = ConHead;
+			int con_count=0;
+			while(con->next!=NULL)
+			{
+				con=con->next;
+				ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+				con_count++;
+			}
+			ofile<<"endclass"<<endl;
+			count++;
+		}
+		ofile.close();
+	}
+	
+
+}
+
+
+
+
+
+			
+
+
+
+	
+void printsv_with_if_TB()
+{
+	function * f = FunHead;
+	//int o=0;
+	while(f->next!=NULL)
+	{
+		f=f->next;
+		char name[30];
+		char class_name[30];
+		memcpy(name,f->id,mystrlen(f->id));
+		name[mystrlen(f->id)]='\0';
+		memcpy(class_name,f->id,mystrlen(f->id));
+		class_name[mystrlen(f->id)]='\0';
+		strcat(name,"_TB.sv");
+		strcat(class_name,"_class.sv");
+		ofstream ofile;
+		ofile.open(name,ios::app);
+		ofile<<"`include "<<" \""<<class_name<<"\""<<endl;
+		ofile<<"`timescale "<<TIMEUNIT<<" / "<<TIMEPRECISION<<endl;
+		ofile<<"module test"<<";"<<endl;
+		// port
+		port * p = PortHead;
+		while(p->next!=NULL)
+		{
+			p=p->next;
+			if(p->direction==1)
+			{
+				ofile<<"reg"<<"  ";
+			}	
+			else
+			{
+				ofile<<"wire"<<"  ";
+			}
+			if(p->width>1)
+			{
+				ofile<<"["<<(p->width-1)<<":"<<"0"<<"]";
+			}
+			ofile<<p->id<<";"<<endl;
+		}	
+	
+		//实例化
+		ofile<<"fpu "<<"ins1 "<<"("<<endl;
+		p=PortHead;
+		while(p->next!=NULL)
+		{
+			p=p->next;
+			if(p->next!=NULL)
+			{
+				ofile<<"."<<p->id<<"("<<p->id<<")"<<","<<endl;
+			}
+			else
+				ofile<<"."<<p->id<<"("<<p->id<<")"<<endl;
+		}
+		ofile<<");"<<endl;
+		int count=0;
+		//int count_all=f->i+1;
+		for(int a=0;a<f->i+1;a++)
+		{
+			ofile<<"packet"<<a<<" "<<" p"<<a<<";"<<endl;
+		}
+
+		//开始激励平台赋值主体：
+		ofile<<"initial"<<endl;
+		ofile<<"begin"<<endl;
+		for(int a=0;a<f->i+1;a++)
+		{
+			ofile<<"p"<<a<<"=new();"<<endl;
+		}
+		ofile<<"#0"<<endl;
+		ofile<<RSTSIGNAL<<" = 1'b1;"<<endl;//初始化不一样，这个信号变不一样。
+		ofile<<"# "<<RSTTIME<<";"<<endl;//设置的初始化执行时间
+		ofile<<"repeat("<<COUNT<<")"<<endl;
+		ofile<<"begin"<<endl;
+		constraint_initial();
+		create_constraint(f->condition);
+		constraint * con = ConHead;
+		int con_count=0;
+		while(con->next!=NULL)
+		{
+			con=con->next;
+			ofile<<con->time<<endl;
+			ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+			ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+			ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+			con_count++;
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(strcmp(p->id,"clk")==1)
+				{
+					if(p->direction==1)
+					{
+						ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+					}
+					else
+					{
+						ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+					}
+				}
+			}
+		}
+			ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
+			//display所有的信号值
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(strcmp(p->id,"clk")==1)
+				{
+					ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+				}
+				
+			}
+		
+		ofile<<"end"<<endl;	
+		count++;
+		for(int a=0;a<f->i;a++)
+		{
+			//ofile<<"packet"<<count<<" "<<" p"<<count<<";"<<endl;
+			//ofile<<"p"<<count<<"=new();"<<endl;
+			ofile<<"#0"<<endl;
+			ofile<<RSTSIGNAL<<" = 1'b1;"<<endl;//初始化不一样，这个信号变不一样。
+			ofile<<"# "<<RSTTIME<<";"<<endl;//设置的初始化执行时间
+			ofile<<"repeat("<<COUNT<<")"<<endl;
+			ofile<<"begin"<<endl;
+			constraint_initial();
+			create_constraint(f->boundry_condition[a]);
+			constraint * con = ConHead;
+			con_count=0;
+			while(con->next!=NULL)
+			{
+				con=con->next;
+				ofile<<con->time<<endl;
+				ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+				ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+				ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+				con_count++;
+				p=PortHead;
+				while(p->next!=NULL)
+				{
+					p=p->next;
+					if(strcmp(p->id,"clk")==1)
+					{
+						if(p->direction==1)
+						{
+							ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+						}
+					}
+				}
+				ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
+				//display所有的信号值
+				p=PortHead;
+				while(p->next!=NULL)
+				{
+					p=p->next;
+					if(strcmp(p->id,"clk")==1)
+					{
+						ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+					}
+				
+				}
+			}
+			ofile<<"end"<<endl;	
+			count++;
+		}
+
+		ofile<<"$finish;"<<endl;
+		ofile<<"end"<<endl;
+		//设时钟
+		ofile<<"always"<<endl;
+		ofile<<"begin : CLOCK_clk"<<endl;
+		ofile<<"clk = 1'b0;"<<endl;
+		ofile<<"#"<<CLKTIME<<";"<<endl;
+		ofile<<"clk = 1'b1;"<<endl;
+		ofile<<"#"<<CLKTIME<<";"<<endl;
+		ofile<<"end"<<endl;
+		ofile<<"endmodule"<<endl;
+		ofile.close();
+	}
+}
+
+
+		
+
+
+	
+
+		
+
+
+
+
+
+
+
 
 
 

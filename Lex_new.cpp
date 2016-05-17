@@ -1277,9 +1277,12 @@ bool findport(char* word)
 	while(p->next!=NULL)
 	{
 		p=p->next;
-		if(strcmp(p->id,word)==0)
+		if(p->direction==1)
 		{
-			return true;
+			if(strcmp(p->id,word)==0)
+			{
+				return true;
+			}
 		}
 
 	}

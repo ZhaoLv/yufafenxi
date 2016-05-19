@@ -365,7 +365,7 @@ void  printfunction()
 	int i;
 	cin>>i;
 }
-function * fathersearch(char * id)
+function * functionsearch(char * id)
 {
 	function * p=FunHead;
 	while(p->next!=NULL)
@@ -392,6 +392,14 @@ char * findtransaction(char * word)
 	}
 	return NULL;
 }
+/*
+function* findfunction(char * id)
+{
+	function * p=FunHead;
+	while(p->next)
+*/
+
+
 char * unfoldcondition(char* condition)
 {
 		char * constraint = new char[500];
@@ -403,18 +411,74 @@ char * unfoldcondition(char* condition)
 //		char* c = condition;
 		for(i=0;i<condition_length;i++)
 		{
-			if((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || condition[i] == '_')//事务的名字不支持出现数字,这一段是将调用的事务展开的
+			if((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')||condition[i] == '_')
 			{
 				int k=0;
 				//array="";
-				while((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || condition[i] == '_')
+				while((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')|| condition[i] == '_')
 				{
 					array[k++] = condition[i++];
 				}
 				word = new char[k+1];
 				memcpy(word,array,k);
 				word[k] = '\0';
-				if(findtransaction(word)!=NULL)
+				if(functionsearch(word)!=NULL)
+				{
+					strcat(constraint ,functionsearch(word)->condition);
+					//加时间。。。方法2
+					char * action_temp = new char [mystrlen(functionsearch(word)->action)+1];
+					memcpy(action_temp,(functionsearch(word)->action),mystrlen(functionsearch(word)->action));
+					action_temp[mystrlen(functionsearch(word)->action)]='\0';
+					char* token = strtok(action_temp,"#;");
+					int time=0;
+					time=time+OPERTIME;
+					while(token!=NULL)
+					{
+						int m=0;
+						int mark=0;
+						while(token[m]!='\0')
+						{
+							if(token[m]>'9'||token[m]<'0')
+								mark=1;
+							m++;
+						}
+						if(mark==0)
+						{
+							time = time + atoi(token);
+						}
+						token = strtok(NULL,"#;");
+					}
+					char opertime[15];
+					opertime[0]='#';
+					opertime[1]='\0';
+					char time_temp[13];
+					itoa(time,time_temp,10);
+					strcat(opertime,time_temp);
+					strcat(constraint,opertime);
+				
+								
+
+
+
+
+
+
+
+						/*
+						//加时间，方法3
+					char opertime[15];
+					opertime[0]='#';
+					opertime[1]='\0';
+					char time[13];
+					int time_num=OPERTIME;
+					itoa(time_num,time,10);
+					strcat(opertime,time);//默认间隔了一个执行时间
+					//strcat(opertime,";");
+					strcat(constraint, opertime);
+					*/
+
+				}
+				else if(findtransaction(word)!=NULL)
 				{
 					strcat(constraint , findtransaction(word));
 				}
@@ -585,7 +649,7 @@ void scanner_function()
 						fatherid = new char[k+1];
 						memcpy(fatherid,array,k);
 						fatherid[k]='\0';
-						if(fathersearch(fatherid)==NULL)
+						if(functionsearch(fatherid)==NULL)
 						{
 							errorfunction(line);
 							break;
@@ -595,7 +659,7 @@ void scanner_function()
 							condition = new char [500];
 							action = new char [500];
 							configuration = new char[100];
-							function * father = fathersearch(fatherid);
+							function * father = functionsearch(fatherid);
 							memcpy(condition,father->condition,mystrlen(father->condition));
 							memcpy(action,father->action,mystrlen(father->action));
 							memcpy(configuration,father->configuration,mystrlen(father->configuration));
@@ -1632,6 +1696,7 @@ void printsv_with_if_TB()
 		//开始激励平台赋值主体：
 		ofile<<"initial"<<endl;
 		ofile<<"begin"<<endl;
+
 		for(int a=0;a<f->i+1;a++)
 		{
 			ofile<<"p"<<a<<"=new();"<<endl;
@@ -1649,6 +1714,17 @@ void printsv_with_if_TB()
 		{
 			con=con->next;
 			ofile<<con->time<<endl;
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(p->direction==2)
+				{
+					ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+				}
+				
+			}
+
 			ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
 			ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
 			ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
@@ -1663,10 +1739,7 @@ void printsv_with_if_TB()
 					{
 						ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
 					}
-					else
-					{
-						ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
-					}
+					
 				}
 			}
 		}
@@ -1702,6 +1775,16 @@ void printsv_with_if_TB()
 			{
 				con=con->next;
 				ofile<<con->time<<endl;
+				p=PortHead;
+				while(p->next!=NULL)
+				{
+					p=p->next;
+					if(p->direction==2)
+					{
+						ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+					}
+				
+				}
 				ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
 				ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
 				ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;

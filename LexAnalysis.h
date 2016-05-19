@@ -87,9 +87,10 @@ void createfunction(char* id, char* condition, char* action, char* configuration
 void errorfunction(int line);
 void scanner_function();
 void printfunction();
-function * fathersearch(char * id);
+function * functionsearch(char * id);
 bool findconfiguration(function * f,port* p);
 char * unfoldcondition(char* condition);
+//function * findfunction(char* id);
 //boundry_condition
 //void createboundry_condition(function * f);
 //void print_boundry_condition();

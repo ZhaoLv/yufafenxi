@@ -35,10 +35,11 @@ struct function
 {
 	char id[30];
 	char condition[500];
-	char action[500];
+	char action[1000];
 	char configuration[100];
 	char boundry_condition[20][500];
 	int i;//num of the boundry_condition
+	function* pre;//œ»––
 	function* next;
 };
 /*
@@ -56,6 +57,11 @@ struct constraint
 	char c[500];
 	char port_name[100];
 	constraint * next;
+};
+struct unfold
+{
+	char  condition[1000];
+	function* pre;
 };
 
 void close();
@@ -83,13 +89,15 @@ void scanner_transaction();
 void printtransaction();
 char * findtransaction(char* word);
 //function
-void createfunction(char* id, char* condition, char* action, char* configuration);
+void createfunction(char* id, char* condition, char* action, char* configuration,function* pre);
 void errorfunction(int line);
 void scanner_function();
 void printfunction();
 function * functionsearch(char * id);
 bool findconfiguration(function * f,port* p);
-char * unfoldcondition(char* condition);
+unfold * unfoldcondition(char* condition);
+char * last_action(char * action);
+char * unfoldaction(char* action);
 //function * findfunction(char* id);
 //boundry_condition
 //void createboundry_condition(function * f);
@@ -101,7 +109,7 @@ char * unfoldcondition(char* condition);
 //constraint
 void constraint_initial();
 void constraint_close();
-void create_constraint(char* condition);
+void create_constraint(char* condition,int pre);
 
 
 

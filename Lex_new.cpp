@@ -291,7 +291,7 @@ void scanner_transaction()
 	}
 }
 
-void createfunction(char* id, char* condition, char* action, char* configuration)
+void createfunction(char* id, char* condition, char* action, char* configuration,function* pre)
 {
 	function * p=FunHead;
 	function * temp = new function();
@@ -303,6 +303,7 @@ void createfunction(char* id, char* condition, char* action, char* configuration
 	strcpy(temp->condition,condition);
 	strcpy(temp->action,action);
 	strcpy(temp->configuration,configuration);
+	temp->pre=pre;
 	
 	
 	
@@ -400,30 +401,57 @@ function* findfunction(char * id)
 */
 
 
-char * unfoldcondition(char* condition)
+unfold * unfoldcondition(char* condition)
 {
-		char * constraint = new char[500];
-		strcpy(constraint,"");
-		int i;
-		char array[500];
-		char * word;
-		int condition_length = mystrlen(condition);
+	unfold * f = new unfold();
+	f->pre==NULL;
+	strcpy(f->condition,"");
+	char constraint[500];
+	strcpy(constraint,"");
+	int i;
+	char array[500];
+	char * word;
+	int condition_length = mystrlen(condition);
 //		char* c = condition;
-		for(i=0;i<condition_length;i++)
+	for(i=0;i<condition_length;i++)
+	{
+		if((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')||condition[i] == '_')
 		{
-			if((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')||condition[i] == '_')
-			{
-				int k=0;
+			int k=0;
 				//array="";
-				while((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')|| condition[i] == '_')
-				{
-					array[k++] = condition[i++];
-				}
-				word = new char[k+1];
-				memcpy(word,array,k);
-				word[k] = '\0';
-				if(functionsearch(word)!=NULL)
-				{
+			while((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')|| condition[i] == '_')
+			{
+				array[k++] = condition[i++];
+			}
+			word = new char[k+1];
+			memcpy(word,array,k);
+			word[k] = '\0';
+			if(functionsearch(word)!=NULL)
+			{
+				f->pre=functionsearch(word);
+				i=i+1;//不要把先行功能后面跟着那个“；”加进constraint里面。
+			}
+			else if(findtransaction(word)!=NULL)
+			{
+				strcat(constraint , findtransaction(word));
+			}
+			else
+				strcat(constraint,word);
+			i=i-1;
+		}
+		else
+		{
+			word = new char[2];
+			word[0]=condition[i];
+			word[1]='\0';
+			strcat(constraint,word);
+		}
+	}
+	strcpy(f->condition,constraint);
+	return f;
+}
+
+/*
 					strcat(constraint ,functionsearch(word)->condition);
 					//加时间。。。方法2
 					char * action_temp = new char [mystrlen(functionsearch(word)->action)+1];
@@ -455,15 +483,9 @@ char * unfoldcondition(char* condition)
 					itoa(time,time_temp,10);
 					strcat(opertime,time_temp);
 					strcat(constraint,opertime);
+					*/
 				
-								
-
-
-
-
-
-
-
+	
 						/*
 						//加时间，方法3
 					char opertime[15];
@@ -475,27 +497,52 @@ char * unfoldcondition(char* condition)
 					strcat(opertime,time);//默认间隔了一个执行时间
 					//strcat(opertime,";");
 					strcat(constraint, opertime);
-					*/
+					
 
 				}
-				else if(findtransaction(word)!=NULL)
-				{
-					strcat(constraint , findtransaction(word));
-				}
-				else
-					strcat(constraint,word);
-				i=i-1;
+				*/
+char * unfoldaction(char* action)
+{
+	char * unfoldaction = new char [1000];
+	strcpy(unfoldaction,"");
+	int i;
+	char array[500];
+	char * word;
+	int action_length = mystrlen(action);
+	for(i=0;i<action_length;i++)
+	{
+		if((action[i]>='A' && action[i]<='Z') || (action[i]>='a' && action[i]<='z') || (action[i]>='0' && action[i]<='9')||action[i] == '_')
+		{
+			int k=0;
+				//array="";
+			while((action[i]>='A' && action[i]<='Z') || (action[i]>='a' && action[i]<='z') || (action[i]>='0' && action[i]<='9')|| action[i] == '_')
+			{
+				array[k++] = action[i++];
+			}
+			word = new char[k+1];
+			memcpy(word,array,k);
+			word[k] = '\0';
+			if(findtransaction(word)!=NULL)
+			{
+				strcat(unfoldaction , findtransaction(word));
 			}
 			else
-			{
-				word = new char[2];
-				word[0]=condition[i];
-				word[1]='\0';
-				strcat(constraint,word);
-			}
+				strcat(unfoldaction,word);
+			i=i-1;
 		}
-		return constraint;
+		else
+		{
+			word = new char[2];
+			word[0]=action[i];
+			word[1]='\0';
+			strcat(unfoldaction,word);
+		}
+	}
+	return unfoldaction;
 }
+
+
+
 
 
 void scanner_function()
@@ -629,7 +676,7 @@ void scanner_function()
 						
 						
 
-					createfunction(id,unfoldcondition(condition),action,configuration);
+						createfunction(id,unfoldcondition(condition)->condition,unfoldaction(action),configuration,unfoldcondition(condition)->pre);
 
 					}
 				}
@@ -741,7 +788,7 @@ void scanner_function()
 									ch = fgetc(infile);
 									delete temp;
 								}
-							createfunction(id,unfoldcondition(condition),action,configuration);
+								createfunction(id,(unfoldcondition(condition))->condition,unfoldaction(action),configuration,(unfoldcondition(condition))->pre);
 							}
 						}
 					}
@@ -1354,6 +1401,7 @@ bool findport(char* word)
 }
 bool mystrstr(char * str1,char * str2)
 {
+	/*
 	//char str[20]="jsdlaadf",substr[10]="sdf";
 	char *p=str1,*q=str2;
 	int flag=0;
@@ -1370,7 +1418,30 @@ bool mystrstr(char * str1,char * str2)
 		return true;
 	else 
 		return false;
+		*/
+		
+	//int i=0;
+	for(int i=0;i<mystrlen(str1);i++)
+	{
+		char array[50];
+		int k=0;
+		while((str1[i]!=',')&&(str1[i]!='\0'))
+		{
+			
+			
+			array[k] = str1[i];
+			k++;
+			i++;
+
+		}
+		array[k] = '\0';
+		if(strcmp(array,str2)==0)
+			return true;
+		//i--;
+	}
+	return false;
 }
+
 
 char * generate_portname(char* c)
 {
@@ -1435,7 +1506,7 @@ char * allinput()
 
 
 
-void create_constraint(char* condition)
+void create_constraint(char* condition, int pre)//注意：strtok这个函数不能嵌套使用，既如果首先使用了1类型的strtok，然后又换了2类型的strtok，再想换成1类型的strtok是不行的，这里的对condition分#和对mystrstr就是傻逼了
 {
 	constraint * p=ConHead;
 	
@@ -1446,58 +1517,153 @@ void create_constraint(char* condition)
 	char * condition_temp = new char [mystrlen(condition)+1];
 	memcpy(condition_temp,condition,mystrlen(condition));
 	condition_temp[mystrlen(condition)]='\0';
-	char* token = strtok(condition_temp,"#");
-	if(token!=NULL)
+	if(pre==1)//有先行
 	{
-		constraint * temp = new constraint();
-		strcpy(temp->c,token);
-		strcpy(temp->time,"");
-		strcpy(temp->port_name,"");
-		p->next=temp;
-		p=p->next;
-		token = strtok(NULL,"#");
-		while(token!=NULL)
+		char * token = strtok(condition_temp,"#");
+		if(token!=NULL)
 		{
-			constraint * temp1 = new constraint();
-			char  array[300];
-			int i=0;
-			while(token[i]!=';')
+			constraint * temp = new constraint();
+			int m=0;
+			char array_temp[300];
+			if((token[m]>='0')&&(token[m]<='9'))//有先行时分两种情况，一是第一条约束有时序，二是第一条约束没有时序
 			{
-				array[i]=token[i];
-				i++;
+				while(token[m]!=';')
+				{
+					array_temp[m]=token[m];
+					m++;
+				}
+				array_temp[m]=';';
+				char * word = new char[m+2];
+				memcpy(word,array_temp,m+1);
+				word[m+1]='\0';
+				strcpy(temp->time,"#");
+				strcat(temp->time,word);
+
+
+
+				int n;
+				int i_temp1=m;
+				for (n=0;n<mystrlen(token)-i_temp1-1;n++)
+				{
+					array_temp[n] = token[++m];
+				}
+				char * word1 = new char [n+1];
+				memcpy(word1,array_temp,n);
+				word1[n] = '\0';
+				strcpy(temp->c,word1);
+				strcpy(temp->port_name,generate_portname(word1));
+				p->next=temp;
+				p=p->next;
 			}
-			array[i] = ';';
-			char * word_temp = new char[i+2];
-			memcpy(word_temp,array,i+1);
-			word_temp[i+1]='\0';
-			//temp->time = new char [i+2];
-			strcat(temp1->time,"#");
-			strcat(temp1->time,word_temp);
-			int k;
-			int i_temp=i;
-			for (k=0;k<mystrlen(token)-i_temp-1;k++)
+			else
 			{
-				array[k] = token[++i];
+				strcpy(temp->c,token);
+				strcpy(temp->time,"");
+				strcpy(temp->port_name,generate_portname(token));
+				p->next=temp;
+				p=p->next;
 			}
-			char * word = new char [k+1];
-			memcpy(word,array,k);
-			word[k] = '\0';
-			strcpy(temp1->c,word);
-			strcpy(temp1->port_name,generate_portname(word));
-			p->next=temp1;
-			p=p->next;
 			token = strtok(NULL,"#");
+			while(token!=NULL)
+			{
+				constraint * temp1 = new constraint();
+				char  array[300];
+				int i=0;
+				while(token[i]!=';')
+				{
+					array[i]=token[i];
+					i++;
+				}
+				array[i] = ';';
+				char * word_temp = new char[i+2];
+				memcpy(word_temp,array,i+1);
+				word_temp[i+1]='\0';
+				//temp->time = new char [i+2];
+				strcat(temp1->time,"#");
+				strcat(temp1->time,word_temp);
+				int k;
+				int i_temp=i;
+				for (k=0;k<mystrlen(token)-i_temp-1;k++)
+				{
+					array[k] = token[++i];
+				}
+				char * word = new char [k+1];
+				memcpy(word,array,k);
+				word[k] = '\0';
+				strcpy(temp1->c,word);
+				strcpy(temp1->port_name,generate_portname(word));
+				p->next=temp1;
+				p=p->next;
+				token = strtok(NULL,"#");
+			}
 		}
 	}
-	else
+	else//没有先行的时候一开始不应该有时序的赋值
 	{
-		constraint * temp = new constraint();
-		strcpy(temp->c,condition);
-		strcpy(temp->time,"");
-		strcpy(temp->port_name,"");
-		p->next=temp;
-		
+		char * token = strtok(condition_temp,"#");//出现了错误，strtok不能在一段函数中联系出现
+		if(token!=NULL)
+		{
+			constraint * temp = new constraint();
+			strcpy(temp->c,token);
+			strcpy(temp->time,"");
+			strcpy(temp->port_name,"");
+			p->next=temp;
+			p=p->next;
+			token = strtok(NULL,"#");
+			while(token!=NULL)
+			{
+				constraint * temp1 = new constraint();
+				char  array[300];
+				int i=0;
+				while(token[i]!=';')
+				{
+					array[i]=token[i];
+					i++;
+				}
+				array[i] = ';';
+				char * word_temp = new char[i+2];
+				memcpy(word_temp,array,i+1);
+				word_temp[i+1]='\0';
+				//temp->time = new char [i+2];
+				strcat(temp1->time,"#");
+				strcat(temp1->time,word_temp);
+				int k;
+				int i_temp=i; 
+				for (k=0;k<mystrlen(token)-i_temp-1;k++)
+				{
+					array[k] = token[++i];
+				}
+				
+				char * word = new char [k+1];
+				memcpy(word,array,k);
+				word[k] = '\0';
+				strcpy(temp1->c,word);
+				strcpy(temp1->port_name,generate_portname(word));
+				p->next=temp1;
+				p=p->next;
+				token = strtok(NULL,"#");
+				
+			}
+		}
 	}
+}
+
+
+
+
+char * last_action(char * action)
+{
+	char * action_temp = new char[mystrlen(action)+1];
+	memcpy(action_temp,action,mystrlen(action));
+	action_temp[mystrlen(action)]='\0';
+	char * last_temp = new char [100];
+	char* token=strtok(action_temp,";");
+	while(token!=NULL)
+	{
+	strcpy(last_temp,token);
+	token=strtok(NULL,";");
+	}
+	return last_temp;
 }
 
 
@@ -1516,14 +1682,14 @@ void printsv_with_if_class()
 		name[mystrlen(f->id)]='\0';
 		strcat(name,"_class.sv");
 		ofstream ofile;
-		ofile.open(name,ios::app);
+		ofile.open(name,ios::out);
 		ofile<<"class packet"<<count<<";"<<endl;
 		port * p;
 		p=PortHead;
 		while(p->next!=NULL)
 		{
 			p=p->next;
-			if(strcmp(p->id,"clk")==1)
+			if(!(strcmp(p->id,"clk")==0))
 			{
 				if(p->direction==1)
 				{
@@ -1552,20 +1718,49 @@ void printsv_with_if_class()
 				}
 			}
 		}
-		//对约束进行处理，以#进行区别
-		constraint_initial();
-		create_constraint(f->condition);
-		//constraint_close();
-		constraint * con = ConHead;
-		int con_count=0;
-		while(con->next!=NULL)
+		if(f->pre==NULL)
 		{
-			con=con->next;
-			ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
-			con_count++;
+			//对约束进行处理，以#进行区别
+			constraint_initial();
+			create_constraint(f->condition,0);
+			//constraint_close();
+			constraint * con = ConHead;
+			int con_count=0;
+			while(con->next!=NULL)
+			{
+				con=con->next;
+				ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+				con_count++;
+			}
+			ofile<<"endclass"<<endl;
+			count++;
 		}
-		ofile<<"endclass"<<endl;
-		count++;
+		else
+		{
+			constraint_initial();
+			create_constraint(f->pre->condition,0);
+			constraint * con = ConHead;
+			int con_count=0;
+			while(con->next!=NULL)
+			{
+				con=con->next;
+				ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+				con_count++;
+			}
+			constraint_initial();
+			create_constraint(f->condition,1);
+			//constraint_close();
+			con = ConHead;
+			while(con->next!=NULL)
+			{
+				con=con->next;
+				ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+				con_count++;
+			}
+			ofile<<"endclass"<<endl;
+			count++;
+		}
+
 		//下面是function的边界：
 
 		for(int a=0; a<f->i;a++)
@@ -1575,7 +1770,7 @@ void printsv_with_if_class()
 			while(p->next!=NULL)
 			{
 				p=p->next;
-				if(strcmp(p->id,"clk")==1)
+				if(!(strcmp(p->id,"clk")==0))
 				{
 					if(p->direction==1)
 					{
@@ -1604,18 +1799,46 @@ void printsv_with_if_class()
 					}
 				}
 			}
-			constraint_initial();
-			create_constraint(f->boundry_condition[a]);
-			constraint * con = ConHead;
-			int con_count=0;
-			while(con->next!=NULL)
+			if(f->pre==NULL)
 			{
-				con=con->next;
-				ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
-				con_count++;
+				constraint_initial();
+				create_constraint(f->boundry_condition[a],0);
+				constraint * con = ConHead;
+				int con_count=0;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+					con_count++;
+				}
+				ofile<<"endclass"<<endl;
+				count++;
 			}
-			ofile<<"endclass"<<endl;
-			count++;
+			else
+			{
+				constraint_initial();
+				create_constraint(f->pre->condition,0);
+				constraint * con = ConHead;
+				int con_count=0;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+					con_count++;
+				}
+				constraint_initial();
+				create_constraint(f->boundry_condition[a],1);
+				//constraint_close();
+				con = ConHead;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+					con_count++;
+				}
+				ofile<<"endclass"<<endl;
+				count++;
+			}
 		}
 		ofile.close();
 	}
@@ -1648,7 +1871,7 @@ void printsv_with_if_TB()
 		strcat(name,"_TB.sv");
 		strcat(class_name,"_class.sv");
 		ofstream ofile;
-		ofile.open(name,ios::app);
+		ofile.open(name,ios::out);
 		ofile<<"`include "<<" \""<<class_name<<"\""<<endl;
 		ofile<<"`timescale "<<TIMEUNIT<<" / "<<TIMEPRECISION<<endl;
 		ofile<<"module test"<<";"<<endl;
@@ -1706,10 +1929,69 @@ void printsv_with_if_TB()
 		ofile<<"# "<<RSTTIME<<";"<<endl;//设置的初始化执行时间
 		ofile<<"repeat("<<COUNT<<")"<<endl;
 		ofile<<"begin"<<endl;
-		constraint_initial();
-		create_constraint(f->condition);
-		constraint * con = ConHead;
 		int con_count=0;
+		constraint * con;
+		int pre_temp=0;//判断当前功能是否有先行功能
+		if(f->pre!=NULL)
+		{
+			pre_temp=1;
+			constraint_initial();
+			create_constraint(f->pre->condition,0);
+			con  = ConHead;
+			
+			while(con->next!=NULL)
+			{
+				con=con->next;
+				ofile<<con->time<<endl;
+				p=PortHead;
+				while(p->next!=NULL)
+				{
+					p=p->next;
+					if(p->direction==2)
+					{
+						ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+					}
+				
+				}
+				ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+				ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+				ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+				p=PortHead;
+				while(p->next!=NULL)
+				{
+					p=p->next;
+					if(con_count==0)//第一次要把随机值全部打给端口
+					{
+						if(!(strcmp(p->id,"clk")==0))
+						{
+							if(p->direction==1)
+							{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+							}
+						}
+					}
+					else//后面只需要把更改的打给端口
+					{
+						if(!(strcmp(p->id,"clk")==0))
+						{
+							if((p->direction==1)&&mystrstr(con->port_name,p->id))
+							{
+							ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+							}
+					
+						}
+					}
+				}
+				con_count++;
+			}
+			ofile<<"wait("<<last_action(f->pre->action)<<")"<<endl;
+			ofile<<"begin"<<endl;
+			
+		}
+		constraint_initial();
+		create_constraint(f->condition,pre_temp);
+		con = ConHead;
+		//int con_count=0;
 		while(con->next!=NULL)
 		{
 			con=con->next;
@@ -1728,49 +2010,122 @@ void printsv_with_if_TB()
 			ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
 			ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
 			ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
-			con_count++;
 			p=PortHead;
 			while(p->next!=NULL)
 			{
 				p=p->next;
-				if(strcmp(p->id,"clk")==1)
+				if(con_count==0)//第一次要把随机值全部打给端口
 				{
-					if(p->direction==1)
+					if(!(strcmp(p->id,"clk")==0))
 					{
-						ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+						if(p->direction==1)
+						{
+							ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+						}
 					}
-					
 				}
-			}
-		}
-			ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
-			//display所有的信号值
-			p=PortHead;
-			while(p->next!=NULL)
-			{
-				p=p->next;
-				if(strcmp(p->id,"clk")==1)
+				else//后面只需要把更改的打给端口
 				{
-					ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+					if(!(strcmp(p->id,"clk")==0))
+					{
+						if((p->direction==1)&&mystrstr(con->port_name,p->id))
+						{
+							ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+						}
+					
+					}
 				}
-				
 			}
-		
+			con_count++;
+		}
+		ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
+		//display所有的信号值
+		p=PortHead;
+		while(p->next!=NULL)
+		{
+			p=p->next;
+			if(!(strcmp(p->id,"clk")==0))
+			{
+				ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+			}
+				
+		}
+		if(f->pre!=NULL)
+		{
+			ofile<<"end"<<endl;
+		}
 		ofile<<"end"<<endl;	
 		count++;
 		for(int a=0;a<f->i;a++)
 		{
 			//ofile<<"packet"<<count<<" "<<" p"<<count<<";"<<endl;
 			//ofile<<"p"<<count<<"=new();"<<endl;
+			//不给初始化了这里
+			/*
 			ofile<<"#0"<<endl;
 			ofile<<RSTSIGNAL<<" = 1'b1;"<<endl;//初始化不一样，这个信号变不一样。
 			ofile<<"# "<<RSTTIME<<";"<<endl;//设置的初始化执行时间
+			*/
 			ofile<<"repeat("<<COUNT<<")"<<endl;
 			ofile<<"begin"<<endl;
-			constraint_initial();
-			create_constraint(f->boundry_condition[a]);
-			constraint * con = ConHead;
 			con_count=0;
+			if(f->pre!=NULL)
+			{
+				constraint_initial();
+				create_constraint(f->pre->condition,0);
+				constraint * con = ConHead;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<con->time<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(p->direction==2)
+						{
+							ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+						}
+				
+					}
+					ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+					ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+					ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(con_count==0)//第一次要把随机值全部打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if(p->direction==1)
+								{
+									ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+							}
+						}
+						else//后面只需要把更改的打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if((p->direction==1)&&mystrstr(con->port_name,p->id))
+								{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+					
+							}
+						}
+					}
+					con_count++;
+				}
+				ofile<<"wait("<<last_action(f->pre->action)<<")"<<endl;
+				ofile<<"begin"<<endl;
+			}
+			constraint_initial();
+			create_constraint(f->boundry_condition[a],pre_temp);
+			constraint * con = ConHead;
+			
 			while(con->next!=NULL)
 			{
 				con=con->next;
@@ -1788,32 +2143,52 @@ void printsv_with_if_TB()
 				ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
 				ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
 				ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
-				con_count++;
+				
 				p=PortHead;
 				while(p->next!=NULL)
 				{
 					p=p->next;
-					if(strcmp(p->id,"clk")==1)
+					if(con_count==0)
 					{
-						if(p->direction==1)
+						if(!(strcmp(p->id,"clk")==0))
 						{
-							ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+							if(p->direction==1)
+							{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+							}
+						}
+					}
+					else
+					{
+						if(!(strcmp(p->id,"clk")==0))
+						{
+							if((p->direction==1)&&mystrstr(con->port_name,p->id))
+							{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+							}
+					
 						}
 					}
 				}
-				ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
-				//display所有的信号值
-				p=PortHead;
-				while(p->next!=NULL)
-				{
-					p=p->next;
-					if(strcmp(p->id,"clk")==1)
-					{
-						ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
-					}
-				
-				}
+				con_count++;
 			}
+			ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
+			//display所有的信号值
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(!(strcmp(p->id,"clk")==0))
+				{
+					ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+				}
+				
+			}
+			if(f->pre!=NULL)
+			{
+				ofile<<"end"<<endl;
+			}
+				
 			ofile<<"end"<<endl;	
 			count++;
 		}

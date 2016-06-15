@@ -16,6 +16,7 @@
 #define RSTSIGNAL "rst_n"//定义重启信号
 #define TIMEUNIT "1ps"
 #define TIMEPRECISION "1ps"
+#define SEED "10" //随机种子
 struct port
 {
     char id[30];

@@ -1722,6 +1722,9 @@ void printsv_with_if_class()
 				}
 			}
 		}
+		ofile<<"function new(int seed);"<<endl;
+		ofile<<"this.srandom(seed);"<<endl;
+		ofile<<"endfunction"<<endl;
 		if(f->pre==NULL)
 		{
 			//对约束进行处理，以#进行区别
@@ -1962,7 +1965,7 @@ void printsv_with_if_TB()
 
 		for(int a=0;a<f->i+1;a++)
 		{
-			ofile<<"p"<<a<<"=new();"<<endl;
+			ofile<<"p"<<a<<"=new("<<SEED<<");"<<endl;
 		}
 		ofile<<"#0"<<endl;
 		ofile<<RSTSIGNAL<<" = 1'b1;"<<endl;//初始化不一样，这个信号变不一样。

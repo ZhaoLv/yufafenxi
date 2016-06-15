@@ -19,12 +19,12 @@ int main()
 	scanner_transaction();
 //	printtransaction();
 	scanner_function();
-	printfunction();
+//	printfunction();
 //	printsv();
 //	print_boundry_condition();
 //	print_boundrysv();
-//	printsv_with_if_class();
-//	printsv_with_if_TB();
+	printsv_with_if_class();
+	printsv_with_if_TB();
 	close();
 	
 	

@@ -361,6 +361,10 @@ void  printfunction()
 		{
 			cout<<p->boundry_condition[k]<<endl;
 		}
+		if(p->pre!=NULL)
+		{
+			cout<<p->pre->id<<endl;
+		}
 
 	}
 	int i;
@@ -1517,7 +1521,7 @@ void create_constraint(char* condition, int pre)//注意：strtok这个函数不能嵌套使
 	char * condition_temp = new char [mystrlen(condition)+1];
 	memcpy(condition_temp,condition,mystrlen(condition));
 	condition_temp[mystrlen(condition)]='\0';
-	if(pre==1)//有先行
+	if(pre>0)//有先行
 	{
 		char * token = strtok(condition_temp,"#");
 		if(token!=NULL)
@@ -1600,7 +1604,7 @@ void create_constraint(char* condition, int pre)//注意：strtok这个函数不能嵌套使
 	}
 	else//没有先行的时候一开始不应该有时序的赋值
 	{
-		char * token = strtok(condition_temp,"#");//出现了错误，strtok不能在一段函数中联系出现
+		char * token = strtok(condition_temp,"#");//出现了错误，strtok不能在一段函数中连续出现
 		if(token!=NULL)
 		{
 			constraint * temp = new constraint();
@@ -1737,29 +1741,43 @@ void printsv_with_if_class()
 		}
 		else
 		{
-			constraint_initial();
-			create_constraint(f->pre->condition,0);
-			constraint * con = ConHead;
+			function * f_temp[10];
+			int pre_num = 0;
+			function * temp = f;
+			while(temp->pre!=NULL)
+			{
+				f_temp[pre_num] = temp;
+				pre_num++;
+				temp = temp->pre;
+			}
+			f_temp[pre_num] = temp;
 			int con_count=0;
+			constraint_initial();
+			create_constraint(f_temp[pre_num]->condition,0);
+			constraint * con = ConHead;
 			while(con->next!=NULL)
 			{
 				con=con->next;
 				ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
 				con_count++;
 			}
-			constraint_initial();
-			create_constraint(f->condition,1);
-			//constraint_close();
-			con = ConHead;
-			while(con->next!=NULL)
+			pre_num--;
+			for(int k=pre_num;k>=0;k--)
 			{
-				con=con->next;
-				ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
-				con_count++;
+				constraint_initial();
+				create_constraint(f_temp[k]->condition,1);
+				con=ConHead;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+					con_count++;
+				}
 			}
 			ofile<<"endclass"<<endl;
 			count++;
 		}
+
 
 		//下面是function的边界：
 
@@ -1816,19 +1834,41 @@ void printsv_with_if_class()
 			}
 			else
 			{
-				constraint_initial();
-				create_constraint(f->pre->condition,0);
-				constraint * con = ConHead;
+				function * f_temp[10];
+				int pre_num = 0;
+				function * temp = f;
+				while(temp->pre!=NULL)
+				{
+					f_temp[pre_num] = temp;
+					pre_num++;
+					temp = temp->pre;
+				}
+				f_temp[pre_num] = temp;
 				int con_count=0;
+				constraint_initial();
+				create_constraint(f_temp[pre_num]->condition,0);
+				constraint * con = ConHead;
 				while(con->next!=NULL)
 				{
 					con=con->next;
 					ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
 					con_count++;
 				}
+				pre_num--;
+				for(int k=pre_num;k>0;k--)
+				{
+					constraint_initial();
+					create_constraint(f_temp[k]->condition,1);
+					con=ConHead;
+					while(con->next!=NULL)
+					{
+						con=con->next;
+						ofile<<"constraint"<<" "<<"c"<<con_count<<"{"<<con->c<<"}"<<endl;
+						con_count++;
+					}	
+				}
 				constraint_initial();
 				create_constraint(f->boundry_condition[a],1);
-				//constraint_close();
 				con = ConHead;
 				while(con->next!=NULL)
 				{
@@ -1837,10 +1877,10 @@ void printsv_with_if_class()
 					con_count++;
 				}
 				ofile<<"endclass"<<endl;
-				count++;
+				count++;	
 			}
 		}
-		ofile.close();
+			ofile.close();
 	}
 	
 
@@ -1929,11 +1969,161 @@ void printsv_with_if_TB()
 		ofile<<"# "<<RSTTIME<<";"<<endl;//设置的初始化执行时间
 		ofile<<"repeat("<<COUNT<<")"<<endl;
 		ofile<<"begin"<<endl;
+		function * f_temp[10];
+		int pre_num = 0;
+		function * temp = f;
+		while(temp->pre!=NULL)
+		{
+			f_temp[pre_num] = temp;
+			pre_num++;
+			temp = temp->pre;
+		}
+		f_temp[pre_num] = temp;
+		constraint * con;
+		int con_count=0;
+		constraint_initial();
+		create_constraint(f_temp[pre_num]->condition,0);
+		con = ConHead;
+		while(con->next!=NULL)
+		{
+			con=con->next;
+			ofile<<con->time<<endl;
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(p->direction==2)
+				{
+					ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+				}
+				
+			}
+			ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+			ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+			ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+				if(con_count==0)//第一次要把随机值全部打给端口
+					{
+					if(!(strcmp(p->id,"clk")==0))
+					{
+						if(p->direction==1)
+						{
+							ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+						}
+					}
+				}
+				else//后面只需要把更改的打给端口
+				{
+					if(!(strcmp(p->id,"clk")==0))
+					{
+						if((p->direction==1)&&mystrstr(con->port_name,p->id))
+						{
+						ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+						}
+				
+					}
+				}
+			}
+			con_count++;
+		}
+		for(int k=pre_num-1;k>=0;k--)
+		{
+			ofile<<"wait("<<last_action(f_temp[k+1]->action)<<")"<<endl;
+			ofile<<"begin"<<endl;
+			constraint_initial();
+			create_constraint(f_temp[k]->condition,1);
+			con = ConHead;
+			while(con->next!=NULL)
+			{
+				con=con->next;
+				ofile<<con->time<<endl;
+				p=PortHead;
+				while(p->next!=NULL)
+				{
+					p=p->next;
+					if(p->direction==2)
+					{
+						ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+					}
+				
+				}
+				ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+				ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+				ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+				p=PortHead;
+				while(p->next!=NULL)
+				{
+					p=p->next;
+					if(con_count==0)//第一次要把随机值全部打给端口
+					{
+						if(!(strcmp(p->id,"clk")==0))
+						{
+							if(p->direction==1)
+							{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+							}
+						}
+					}
+					else//后面只需要把更改的打给端口
+					{
+						if(!(strcmp(p->id,"clk")==0))
+						{
+							if((p->direction==1)&&mystrstr(con->port_name,p->id))
+							{
+							ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+							}
+					
+						}
+					}
+				}
+				con_count++;
+			}
+		}
+		ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
+		//display所有的信号值
+		p=PortHead;
+		while(p->next!=NULL)
+		{
+			p=p->next;
+			if(!(strcmp(p->id,"clk")==0))
+			{
+				ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+			}
+				
+		}
+		for(int m=0;m<=pre_num;m++)
+		{
+			ofile<<"end"<<endl;
+		}
+		count++;//类的数
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
 		int con_count=0;
 		constraint * con;
 		int pre_temp=0;//判断当前功能是否有先行功能
 		if(f->pre!=NULL)
 		{
+
 			pre_temp=1;
 			constraint_initial();
 			create_constraint(f->pre->condition,0);
@@ -2056,6 +2246,21 @@ void printsv_with_if_TB()
 		}
 		ofile<<"end"<<endl;	
 		count++;
+*/
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
 		for(int a=0;a<f->i;a++)
 		{
 			//ofile<<"packet"<<count<<" "<<" p"<<count<<";"<<endl;
@@ -2066,9 +2271,235 @@ void printsv_with_if_TB()
 			ofile<<RSTSIGNAL<<" = 1'b1;"<<endl;//初始化不一样，这个信号变不一样。
 			ofile<<"# "<<RSTTIME<<";"<<endl;//设置的初始化执行时间
 			*/
+
 			ofile<<"repeat("<<COUNT<<")"<<endl;
 			ofile<<"begin"<<endl;
 			con_count=0;
+			if(pre_num==0)
+			{
+				constraint_initial();
+				create_constraint(f->boundry_condition[a],0);
+				con = ConHead;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<con->time<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(p->direction==2)
+						{
+						ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+						}
+				
+					}
+					ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+					ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+					ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(con_count==0)//第一次要把随机值全部打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if(p->direction==1)
+								{
+									ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+							}
+						}
+						else//后面只需要把更改的打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if((p->direction==1)&&mystrstr(con->port_name,p->id))
+								{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+				
+							}
+						}
+					}
+					con_count++;
+				}
+			}
+			else
+			{
+				constraint_initial();
+				create_constraint(f_temp[pre_num]->condition,0);
+				con = ConHead;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<con->time<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(p->direction==2)
+						{
+							ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+						}
+				
+					}
+					ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+					ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+					ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(con_count==0)//第一次要把随机值全部打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if(p->direction==1)
+								{
+									ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+							}
+						}
+						else//后面只需要把更改的打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if((p->direction==1)&&mystrstr(con->port_name,p->id))
+								{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+				
+							}
+						}
+					}
+					con_count++;
+				}
+				for(int k=pre_num-1;k>0;k--)
+				{
+					ofile<<"wait("<<last_action(f_temp[k+1]->action)<<")"<<endl;
+					ofile<<"begin"<<endl;
+					constraint_initial();
+					create_constraint(f_temp[k]->condition,1);
+					con = ConHead;
+					while(con->next!=NULL)
+					{
+						con=con->next;
+						ofile<<con->time<<endl;
+						p=PortHead;
+						while(p->next!=NULL)
+						{
+							p=p->next;
+							if(p->direction==2)
+							{
+								ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+							}
+				
+						}
+						ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+						ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+						ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+						p=PortHead;
+						while(p->next!=NULL)
+						{
+							p=p->next;
+							if(con_count==0)//第一次要把随机值全部打给端口
+							{
+								if(!(strcmp(p->id,"clk")==0))
+								{
+									if(p->direction==1)
+									{
+										ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+									}
+								}
+							}
+							else//后面只需要把更改的打给端口
+							{
+								if(!(strcmp(p->id,"clk")==0))
+								{
+									if((p->direction==1)&&mystrstr(con->port_name,p->id))
+									{
+									ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+									}
+					
+								}
+							}	
+						}
+						con_count++;
+					}
+				}
+				constraint_initial();
+				create_constraint(f->boundry_condition[a],1);
+				con = ConHead;
+				while(con->next!=NULL)
+				{
+					con=con->next;
+					ofile<<con->time<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(p->direction==2)
+						{
+						ofile<<"p"<<count<<"."<<p->id<<"="<<p->id<<";"<<endl;
+						}
+				
+					}
+					ofile<<"p"<<count<<".constraint_mode(0);"<<endl;
+					ofile<<"p"<<count<<".c"<<con_count<<".constraint_mode(1);"<<endl;
+					ofile<<"assert(p"<<count<<".randomize("<<con->port_name<<"));"<<endl;
+					p=PortHead;
+					while(p->next!=NULL)
+					{
+						p=p->next;
+						if(con_count==0)//第一次要把随机值全部打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if(p->direction==1)
+								{
+									ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+							}
+						}
+						else//后面只需要把更改的打给端口
+						{
+							if(!(strcmp(p->id,"clk")==0))
+							{
+								if((p->direction==1)&&mystrstr(con->port_name,p->id))
+								{
+								ofile<<p->id<<"="<<"p"<<count<<"."<<p->id<<";"<<endl;
+								}
+				
+							}
+						}
+					}
+					con_count++;
+				}
+			}
+			ofile<<"# "<<OPERTIME<<";"<<endl;//功能的延时
+			//display所有的信号值
+			p=PortHead;
+			while(p->next!=NULL)
+			{
+				p=p->next;
+			if(!(strcmp(p->id,"clk")==0))
+				{
+					ofile<<"$display("<<"\""<<p->id<<"="<<"%b"<<"\""<<","<<p->id<<");"<<endl;
+				}
+				
+			}
+			for(int m=0;m<=pre_num;m++)
+			{
+				ofile<<"end"<<endl;
+			}
+			count++;//类的数
+		}
+
+
+/*
+
 			if(f->pre!=NULL)
 			{
 				constraint_initial();
@@ -2192,7 +2623,7 @@ void printsv_with_if_TB()
 			ofile<<"end"<<endl;	
 			count++;
 		}
-
+*/
 		ofile<<"$finish;"<<endl;
 		ofile<<"end"<<endl;
 		//设时钟

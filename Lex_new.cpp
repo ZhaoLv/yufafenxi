@@ -1670,6 +1670,70 @@ char * last_action(char * action)
 	return last_temp;
 }
 
+char * unfold_all_condition(function * f)
+{
+	char * all_condition = new char [1000];
+	strcpy(all_condition,"");
+	function * f_temp[10];
+	int pre_num = 0;
+	function * temp = f;
+	while(temp->pre!=NULL)//展开所有的先行功能，将其赋值给f_temp
+	{
+		f_temp[pre_num] = temp;
+		pre_num++;
+		temp = temp->pre;
+	}
+	f_temp[pre_num] = temp;
+	for(int i = pre_num;i>=0;i--)
+	{
+		strcat(all_condition,f_temp[i]->condition);
+	}
+	return all_condition;
+}
+
+char* condition_convert_assert(char* condition)
+{
+	char * assert = new char [1000];
+	strcpy(assert,"");
+	char condition_temp [1000];
+	memcpy(condition_temp,condition,mystrlen(condition));
+	condition_temp[mystrlen(condition)]='\0';
+	char * token;
+	token = strtok(condition_temp,";");
+	while(token!=NULL)
+	{
+		strcat(assert,"(");//两个语法规定：1）一开始condition不可以是时序关系；2）时序关系后面一定是事务
+		strcat(assert,token);
+		strcat(assert,")");
+		token = strtok(NULL,";");
+		if(token==NULL)
+		{
+			return assert;
+		}
+		while(token[0]!='#')
+		{
+			strcat(assert,"&&(");
+			strcat(assert,token);
+			strcat(assert,")");
+			token = strtok(NULL,";");
+			if(token==NULL)
+				return assert;
+		}
+
+		strcat(assert,"#");
+		strcat(assert,token);
+		token = strtok(NULL,";");
+	}
+	return assert;
+}
+
+
+
+
+
+		
+
+	
 
 	
 
@@ -2629,6 +2693,12 @@ void printsv_with_if_TB()
 */
 		ofile<<"$finish;"<<endl;
 		ofile<<"end"<<endl;
+		//设置断言
+		char assert[2000];
+		strcpy(assert,condition_convert_assert(unfold_all_condition(f)));
+		ofile<<"assert"<<"  A_"<<name<<"   "<<assert<<endl;
+		ofile<<"|->"<<" "<<"##[0:"<<OPERTIME<<"]";
+		ofile<<condition_convert_assert(f->action)<<endl;
 		//设时钟
 		ofile<<"always"<<endl;
 		ofile<<"begin : CLOCK_clk"<<endl;

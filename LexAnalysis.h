@@ -99,6 +99,8 @@ bool findconfiguration(function * f,port* p);
 unfold * unfoldcondition(char* condition);
 char * last_action(char * action);
 char * unfoldaction(char* action);
+char * unfold_all_condition(function * f);
+char* condition_convert_assert(char* condition);
 //function * findfunction(char* id);
 //boundry_condition
 //void createboundry_condition(function * f);

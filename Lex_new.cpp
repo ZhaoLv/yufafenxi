@@ -397,6 +397,90 @@ char * findtransaction(char * word)
 	}
 	return NULL;
 }
+
+int isALLTerminal(char *condition)
+{
+   char array[5000];
+   char *dword;
+  int condition_length=mystrlen(condition);
+for(int i=0;i<condition_length;i++)
+ {
+   if((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')||condition[i] == '_')
+    {
+        int k=0;
+	while((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')|| condition[i] == '_')
+	{
+	   array[k++] = condition[i++];
+	 }
+	     dword = new char[k+1];
+	     memcpy(dword,array,k);
+	     dword[k] = '\0';
+           if(findtransaction(dword)!=NULL)
+           {
+             return 0;
+            }
+      }
+  }
+ return 1;
+}    
+
+ char *replace_tran(char *condition)
+  {
+     char array[5000];
+     char *word;
+     int condition_length=mystrlen(condition);
+     for(int i=0;i<condition_length;i++)
+      {
+          if((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')||condition[i] == '_')
+           {
+             int k=0;
+	     while((condition[i]>='A' && condition[i]<='Z') || (condition[i]>='a' && condition[i]<='z') || (condition[i]>='0' && condition[i]<='9')|| condition[i] == '_')
+	      {
+	        array[k++] = condition[i++];
+	       }
+	         word = new char[k+1];
+	         memcpy(word,array,k);
+	         word[k] = '\0';
+                 if(findtransaction(word)!=NULL)
+                 {  
+                   char *conditioni = str_replace(condition,word,findtransaction(word));
+                   return conditioni;
+                  }
+            }
+        }
+    return NULL;
+   }
+
+ char *str_replace(char *word,char *word2,char *word3)
+  {
+    char *pi,*p;
+    pi=word;
+    int m=mystrlen(word2);
+    int n=mystrlen(word3);
+    char *po=new char[5000];
+    char *result=po;
+    p=strstr(pi,word2);
+
+    if(p)
+    {
+      while(p)
+      {
+        int nlen=(int)(p-pi);
+        memcpy(po,pi,nlen);
+        memcpy(po+nlen,word3,n);
+        pi=p+m;
+        po=po+nlen+n;
+
+        p=strstr(pi,word2);
+       }
+     }
+     memcpy(po,pi,strlen(pi));
+     char *temp =new char[1];
+     temp[0]='\0';
+     memcpy(po+strlen(pi),temp,1);
+     return result;
+  }
+
 /*
 function* findfunction(char * id)
 {
@@ -437,7 +521,18 @@ unfold * unfoldcondition(char* condition)
 			}
 			else if(findtransaction(word)!=NULL)
 			{
-				strcat(constraint , findtransaction(word));
+			       while(1)
+                                { 
+                                   if(isALLTerminal(word))
+                                    {
+                                       break;
+                                     }
+                                   else
+                                   {
+                                     word=replace_tran(word);
+                                    }
+                                }
+                             strcat(constraint,word);
 			}
 			else
 				strcat(constraint,word);
@@ -1720,8 +1815,20 @@ char* condition_convert_assert(char* condition)
 				return assert;
 		}
 
-		strcat(assert,"#");
-		strcat(assert,token);
+		int i=1;
+		char time_temp[10];
+		int time;
+		while((token[i]>='0')&&(token[i]<='9'))
+		{
+			time_temp[i-1] = token[i];
+			i++;
+		}
+		time_temp[i-1] = '\0';
+		time = atoi(time_temp);
+		time = time/(CLKTIME*2);
+		itoa(time,time_temp,10);			
+		strcat(assert,"##");//时序赋值必须是时钟周期的整倍数
+		strcat(assert,time_temp);
 		token = strtok(NULL,";");
 	}
 	return assert;
@@ -2696,9 +2803,13 @@ void printsv_with_if_TB()
 		//设置断言
 		char assert[2000];
 		strcpy(assert,condition_convert_assert(unfold_all_condition(f)));
-		ofile<<"assert"<<"  A_"<<name<<"   "<<assert<<endl;
-		ofile<<"|->"<<" "<<"##[0:"<<OPERTIME<<"]";
-		ofile<<condition_convert_assert(f->action)<<endl;
+		ofile<<"sequence"<<" "<<f->id<<"_condition;"<<endl;
+		ofile<<assert<<";"<<endl;
+		ofile<<"endsequence"<<endl;
+		ofile<<"property"<<" "<<f->id<<"_p;"<<endl;
+		ofile<<"@(posedge clk)"<<"  "<<f->id<<"_condition"<<" "<<"|->"<<" "<<"##[0:"<<(OPERTIME/(CLKTIME*2))<<"]"<<condition_convert_assert(f->action)<<";"<<endl;
+		ofile<<"endproperty"<<endl;
+		ofile<<f->id<<"_assert"<<" :  "<<"assert property("<<f->id<<"_p)"<<";"<<endl;
 		//设时钟
 		ofile<<"always"<<endl;
 		ofile<<"begin : CLOCK_clk"<<endl;

@@ -12,7 +12,7 @@
 #define COUNT 100//随机验证个数
 #define RSTTIME 20000//重启保持时间
 #define OPERTIME 800000//执行时间
-#define CLKTIME 5000//时钟周期的一半
+#define CLKTIME 5//时钟周期的一半
 #define RSTSIGNAL "rst_n"//定义重启信号
 #define TIMEUNIT "1ps"
 #define TIMEPRECISION "1ps"
@@ -114,7 +114,7 @@ void constraint_initial();
 void constraint_close();
 void create_constraint(char* condition,int pre);
 
-
-
-
+char *str_replace(char *word,char *word2,char *word3);
+ char *replace_tran(char *condition);
+ int isALLTerminal(char *condition);
 #endif
